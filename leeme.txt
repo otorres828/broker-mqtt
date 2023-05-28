@@ -1,0 +1,12 @@
+guia para instalar paho : https://github.com/eclipse/paho.mqtt.cpp
+................................................................
+Pasos para compilar el proyecto
+
+1. Conectar el suscriptor
+	$ cd suscriptor
+si quiere volver a compilar
+	$ g++ -o suscriptor suscriptor.cpp -lpaho-mqtt3a
+si quiere ejecutarlo
+	$ ./suscriptor
+
+Una vez iniciado el suscriptor le pedira, host, puerto y topic
