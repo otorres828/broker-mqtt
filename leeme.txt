@@ -9,4 +9,10 @@ si quiere volver a compilar
 si quiere ejecutarlo
 	$ ./suscriptor
 
-Una vez iniciado el suscriptor le pedira, host, puerto y topic
+2. Conectar el publicador
+	$ cd publicador
+si quiere volver a compilar
+	$ g++ -o publicador publicador.cpp -lpaho-mqtt3a
+si quiere ejecutarlo
+	$ ./publicador
+Una vez iniciado el publicador le pedira, host, puerto, topic y mensaje o payload
