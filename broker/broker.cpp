@@ -45,7 +45,6 @@ unordered_map<string, string> retained_messages;
 
 // Función para publicar un mensaje a todos los clientes suscritos a un topic
 void publish(const string& topic, const string& message) {
-    std::cout << "Se esta publicando un mensaje: " << message << " en el topic: " << topic << endl;
     for (auto it = clients.begin(); it != clients.end(); ++it) {
         int fd = it->first;
         ClientInfo& info = it->second;
