@@ -22,14 +22,11 @@ enum class TipoDePaquete : uint8_t {
     PUBLISH = 0x03,
     PUBACK = 0x04,
     PUBREC = 0x05,
-    PUBREL = 0x06,
     PUBCOMP = 0x07,
     SUBSCRIBE = 0x08,
     SUBACK = 0x09,
     UNSUBSCRIBE = 0x0A,
     UNSUBACK = 0x0B,
-    PINGREQ = 0x0C,
-    PINGRESP = 0x0D,
     DISCONNECT = 0x0E
 };
 
@@ -85,7 +82,7 @@ void manejar_paquete(int cliente_id, TipoDePaquete type, const uint8_t* data, si
     switch (type) {
         case TipoDePaquete::CONNECT: {
             std::cout<<"Un cliente se conecto"<<std::endl;
-            // Parse the CONNECT packet
+            // Parsear el paquete CONNECT
             uint16_t protocol_name_length = (data[0] << 8) | data[1];
             string protocol_name(reinterpret_cast<const char*>(data + 2), protocol_name_length);
             uint8_t protocol_level = data[2 + protocol_name_length];
@@ -93,9 +90,9 @@ void manejar_paquete(int cliente_id, TipoDePaquete type, const uint8_t* data, si
             uint16_t keep_alive = (data[2 + protocol_name_length + 2] << 8) | data[2 + protocol_name_length + 3];
             uint16_t client_id_length = (data[2 + protocol_name_length + 4] << 8) | data[2 + protocol_name_length + 5];
             string client_id(reinterpret_cast<const char*>(data + 2 + protocol_name_length + 6), client_id_length);
-            // Check if the client ID is already in use
+            // Comprobar si el ID de cliente ya está en uso
             if (clients.count(cliente_id) > 0 ) {
-                // Disconnect the client
+                // descoenctar el cliente
                 uint8_t buffer[2];
                 buffer[0] = static_cast<uint8_t>(TipoDePaquete::CONNACK) << 4;
                 buffer[1] = 0x02;
@@ -104,28 +101,27 @@ void manejar_paquete(int cliente_id, TipoDePaquete type, const uint8_t* data, si
                 clients.erase(cliente_id);
                 return;
             }
-            // Store the client ID
+            // Guardar el id del cliente
             clients[cliente_id].socket_fd = cliente_id;
             clients[cliente_id].connected = true;
             clients[cliente_id].client_id = client_id;
-            // Send a CONNACK packet
+            // enviar un CONNACK
             uint8_t buffer[4];
             buffer[0] = static_cast<uint8_t>(TipoDePaquete::CONNACK) << 4;
             buffer[1] = 0x02;
             buffer[2] = 0x00;
             buffer[3] = 0x00;
             send(cliente_id, buffer, 4, 0);
-            // Send```
-            // any retained messages
-            for (auto it = retained_messages.begin(); it != retained_messages.end(); ++it) {
-                const std::string& topic = it->first;
-                publish(topic, it->second);            
-            }
+            // los mensajes retenidos
+            // for (auto it = retained_messages.begin(); it != retained_messages.end(); ++it) {
+            //     const std::string& topic = it->first;
+            //     publish(topic, it->second);            
+            // }
             break;
         }
         case TipoDePaquete::PUBLISH: {
             std::cout<<"este paquete es de un publicador"<<std::endl;
-            // Parse the PUBLISH packet
+            // Parsear el paquete PUBLISH
             uint16_t topic_length = (data[0] << 8) | data[1];
             string topic(reinterpret_cast<const char*>(data + 2), topic_length);
             if ((data[0] & 0x06) == 0x02) {
@@ -137,31 +133,22 @@ void manejar_paquete(int cliente_id, TipoDePaquete type, const uint8_t* data, si
                 buffer[2] = packet_id >> 8;
                 buffer[3] = packet_id & 0xFF;
                 send(cliente_id, buffer, 4, 0);
-            } else if ((data[0] & 0x06) == 0x04) {
-                // QoS 2 PUBLISH packet, send a PUBREC packet
-                uint16_t packet_id = (data[2 + topic_length] << 8) | data[2 + topic_length + 1];
-                uint8_t buffer[4];
-                buffer[0] = static_cast<uint8_t>(TipoDePaquete::PUBREC) << 4;
-                buffer[1] = 0x02;
-                buffer[2] = packet_id >> 8;
-                buffer[3] = packet_id & 0xFF;
-                send(cliente_id, buffer, 4, 0);
-            }
-            // Publish the message to all clients subscribed to the topic
+            } 
+            // Publicar el mensaje a todos los clientes suscritos al tema
             uint16_t message_length = size - 2 - topic_length;
             string message(reinterpret_cast<const char*>(data + 2 + topic_length), message_length);
             publish(topic, message);
             // Retain the message if the retain flag is set
-            if ((data[0] & 0x01) == 0x01) {
-                retained_messages[topic] = message;
-            } else {
-                retained_messages.erase(topic);
-            }
+            // if ((data[0] & 0x01) == 0x01) {
+            //     retained_messages[topic] = message;
+            // } else {
+            //     retained_messages.erase(topic);
+            // }
             break;
         }
         case TipoDePaquete::SUBSCRIBE: {
             std::cout<<"Un cliente se suscribio"<<std::endl;
-            // Parse the SUBSCRIBE packet
+            // Parsear el paquete SUBSCRIBE
             uint16_t packet_id = (data[0] << 8) | data[1];
             size_t index = 2;
             vector<pair<string, uint8_t>> subscriptions;
@@ -172,7 +159,7 @@ void manejar_paquete(int cliente_id, TipoDePaquete type, const uint8_t* data, si
                 subscriptions.emplace_back(topic, qos);
                 index += 3 + topic_length;
             }
-            // Add the subscriptions to the client
+            // Añadir las suscripciones al cliente
             for (auto it = subscriptions.begin(); it != subscriptions.end(); ++it) {
                 const std::string& topic = it->first;
                 auto& subscriptions = clients[cliente_id].subscriptions;
@@ -180,7 +167,7 @@ void manejar_paquete(int cliente_id, TipoDePaquete type, const uint8_t* data, si
                     subscriptions.push_back(topic);
                 }
             }
-            // Send a SUBACK packet
+            // Enviar un SUBACK 
             uint8_t buffer[3 + subscriptions.size()];
             buffer[0] = static_cast<uint8_t>(TipoDePaquete::SUBACK) << 4;
             buffer[1] = 2 + subscriptions.size();
@@ -194,7 +181,7 @@ void manejar_paquete(int cliente_id, TipoDePaquete type, const uint8_t* data, si
         }
         case TipoDePaquete::UNSUBSCRIBE: {
              std::cout<<"Un cliente se des-suscribio"<<std::endl;
-            // Parse the UNSUBSCRIBE packet
+            // Parsear el paquete UNSUBSCRIBE
             uint16_t packet_id = (data[0] << 8) | data[1];
             size_t index = 2;
             vector<string> topics;
@@ -204,12 +191,12 @@ void manejar_paquete(int cliente_id, TipoDePaquete type, const uint8_t* data, si
                 topics.push_back(topic);
                 index += 2 + topic_length;
             }
-            // Remove the subscriptions from the client
+            // Eliminar las suscripciones del cliente
             for (auto& topic : topics) {
                 auto& subscriptions = clients[cliente_id].subscriptions;
                 subscriptions.erase(remove(subscriptions.begin(), subscriptions.end(), topic), subscriptions.end());
             }
-            // Send an UNSUBACK packet
+            // Enviar un paquete UNSUBACK
             uint8_t buffer[2];
             buffer[0] = static_cast<uint8_t>(TipoDePaquete::UNSUBACK) << 4;
             buffer[1] = 0x02;
@@ -218,23 +205,15 @@ void manejar_paquete(int cliente_id, TipoDePaquete type, const uint8_t* data, si
             send(cliente_id, buffer, 4, 0);
             break;
         }
-        case TipoDePaquete::PINGREQ: {
-            // Send a PINGRESP packet
-            uint8_t buffer[2];
-            buffer[0] = static_cast<uint8_t>(TipoDePaquete::PINGRESP) << 4;
-            buffer[1] = 0x00;
-            send(cliente_id, buffer, 2, 0);
-            break;
-        }
         case TipoDePaquete::DISCONNECT: {
             std::cout<<"Un cliente se Desconecto"<<std::endl;
-            // Disconnect the client
+            // Cliente desconectado
             close(cliente_id);
             clients.erase(cliente_id);
             break;
         }
         default:
-            // Invalid packet type, disconnect the client
+            // Tipo de paquete no válido, desconecte el cliente
             std::cout<<"No se pudo conectar, cliente desconectado"<<std::endl;
             close(cliente_id);
             clients.erase(cliente_id);
@@ -252,13 +231,13 @@ void manejar_cliente(int cliente_id) {
             cerr << "fallo al recibir los datos" << endl;
             break;
         } else if (bytes_received == 0) {
-            // Client disconnected
+            // Cliente desconectado
             close(cliente_id);
             clients.erase(cliente_id);
             break;
         }
         buffer_size += bytes_received;
-        // Parse packets from the buffer
+        // Parsear el paquete del buffer
         while (buffer_size > 0) {
             uint8_t fixed_header = buffer[0];
             uint8_t packet_type = fixed_header >> 4;
@@ -285,7 +264,7 @@ void manejar_cliente(int cliente_id) {
 }
 
 int main() {
-    // Create a TCP socket
+    // Crear un socket TCP
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd == -1) {
         cerr << "fallo al crear el socket" << endl;
@@ -305,15 +284,15 @@ int main() {
         close(server_fd);
         return 1;
     }
-    // Listen for incoming connections
+    // Escucha de conexiones entrantes
     if (listen(server_fd, SOMAXCONN) == -1) {
         cerr << "Fallo al escuchar el socket" << endl;
         close(server_fd);
         return 1;
     }
-    // Main loop
+    // Bucle principal
     while (true) {
-        // Wait for a client to connect
+        // Esperar la conexion del cliente
         sockaddr_in client_addr{};
         socklen_t client_addr_len = sizeof(client_addr);
         int cliente_id = accept(server_fd, reinterpret_cast<sockaddr*>(&client_addr), &client_addr_len);
@@ -321,12 +300,11 @@ int main() {
             cerr << "No se ha podido aceptar la conexión" << endl;
             continue;
         }
-        // Create a thread to handle the client
+        //Crear un hilo para gestionar el cliente
         thread t(manejar_cliente,cliente_id);
-        t.detach(); // Detach the thread so it can run independently
+        t.detach(); // Separar el hilo para que pueda funcionar de forma independiente
     }
-    // Close the server socket
+    // Cerrar el socket del servidor
     close(server_fd);
     return 0;
 }
-
