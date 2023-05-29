@@ -32,7 +32,7 @@ enum class TipoDePaquete : uint8_t {
 // Estructura para almacenar información sobre un cliente
 struct ClientInfo {
     int socket_fd;
-    bool connected;
+    bool conectado;
     string client_id;
     vector<string> subscriptions;
 };
@@ -49,7 +49,7 @@ void publish(const string& topic, const string& message) {
     for (auto it = clients.begin(); it != clients.end(); ++it) {
         int fd = it->first;
         ClientInfo& info = it->second;
-        if (info.connected) {
+        if (info.conectado) {
             for (const auto& subscription : info.subscriptions) {
                 if (subscription == topic) {
                     uint8_t header = static_cast<uint8_t>(TipoDePaquete::PUBLISH) << 4 | 0x00;
@@ -69,7 +69,7 @@ void publish(const string& topic, const string& message) {
                 }
             }
         } else {
-            std::cout << "No connected clients found" << std::endl;
+            std::cout << "Cliente no encontrado" << std::endl;
         }
     }
 }
@@ -100,7 +100,7 @@ void manejar_paquete(int cliente_id, TipoDePaquete type, const uint8_t* data, si
             }
             // Guardar el id del cliente
             clients[cliente_id].socket_fd = cliente_id;
-            clients[cliente_id].connected = true;
+            clients[cliente_id].conectado = true;
             clients[cliente_id].client_id = client_id;
             // enviar un CONNACK
             uint8_t buffer[4];
