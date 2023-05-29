@@ -12,7 +12,6 @@
 #include <mutex>
 #include <thread>
 
-
 using namespace std;
 
 // Enumeración para los diferentes tipos de paquetes MQTT
@@ -51,10 +50,8 @@ void publish(const string& topic, const string& message) {
         int fd = it->first;
         ClientInfo& info = it->second;
         if (info.connected) {
-            std::cout << "Enviando mensaje al cliente " << fd << endl;
             for (const auto& subscription : info.subscriptions) {
                 if (subscription == topic) {
-                    std::cout << "Se envia el mensaje al cliente suscrito al topic: " << topic << endl;
                     uint8_t header = static_cast<uint8_t>(TipoDePaquete::PUBLISH) << 4 | 0x00;
                     uint8_t remaining_length = 2 + topic.size() + message.size();
                     if (remaining_length <= 127) {
@@ -290,7 +287,8 @@ int main() {
         close(server_fd);
         return 1;
     }
-    // Bucle principal
+    std::mutex mutex; // Declarar un objeto mutex para proteger el acceso a la lista de clientes
+
     while (true) {
         // Esperar la conexion del cliente
         sockaddr_in client_addr{};
@@ -300,6 +298,9 @@ int main() {
             cerr << "No se ha podido aceptar la conexión" << endl;
             continue;
         }
+        // Proteger el acceso a la lista de clientes
+        std::lock_guard<std::mutex> lock(mutex);
+
         //Crear un hilo para gestionar el cliente
         thread t(manejar_cliente,cliente_id);
         t.detach(); // Separar el hilo para que pueda funcionar de forma independiente
