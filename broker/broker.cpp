@@ -62,9 +62,7 @@ void enviar_mensaje(const std::string& topic, const std::string& message, int so
     concatenated_data += message;
     // Enviar todos los datos en una sola llamada a send()
     send(socket_client_id, concatenated_data.c_str(), concatenated_data.size(), 0);
-   
 }
-
 
 // Funcion para verificar que el socket del cliente suscriptor exista al momento de enviar el mensaje
 int verificar_existencia_socket(int socket_client_id){
@@ -98,9 +96,7 @@ void publish(const string& topic, const string& message) {
                         std::cout << "El socket del suscriptor no existe" <<std::endl;
                     }else{
                          std::cout << "Error al consultar el estado del socket" <<std::endl;
-
                     }
-
                 }                
             }
         } else {
@@ -137,7 +133,7 @@ void manejar_paquete(int cliente_id, TipoDePaquete type, const uint8_t* data, si
             clients[cliente_id].socket_fd = cliente_id;
             clients[cliente_id].conectado = true;
             clients[cliente_id].client_id = client_id;
-            std::cout << "Socket del cliente CONNECT: " << cliente_id << std::endl;
+            // std::cout << "Socket del cliente CONNECT: " << cliente_id << std::endl;
             // enviar un CONNACK
             uint8_t buffer[4];
             buffer[0] = static_cast<uint8_t>(TipoDePaquete::CONNACK) << 4;
@@ -311,6 +307,7 @@ int main() {
     }
     std::cout << "Ingrese el puerto: ";
     std::cin >> port;
+    std::cout << "-------------------------------------------"<<std::endl;
 
     // BROKER CONECTADO EN EL PUERTO
     sockaddr_in server_addr{};
