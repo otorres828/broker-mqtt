@@ -47,10 +47,10 @@ unordered_map<string, string> retained_messages;
 int port;
 
 // Función para enviar un mensaje al socket del cliente suscriptor en Node-RED
-void enviar_mensaje(const std::string& topic, const std::string& message, int socket_client_id){
+void enviar_mensaje_suscriptor(const std::string& topic, const std::string& message, int socket_client_id){
     int8_t header = static_cast<uint8_t>(TipoDePaquete::PUBLISH) << 4 | 0x00;
     uint8_t remaining_length = 8 + topic.size() + message.size();
-    std::cout << "------------------------"<<socket_client_id<<"-------------------------------- " <<std::endl;
+    std::cout << "-------------------"<<socket_client_id<<"-------------------" <<std::endl;
     std::cout<<"Publicador envia: "<< message.c_str()<<std::endl;
     // Concatenar los datos en una sola cadena de caracteres
     std::string concatenated_data;
@@ -91,7 +91,7 @@ void publish(const string& topic, const string& message) {
                 if (subscription == topic) {
                     int existencia= verificar_existencia_socket(socket_client_id);   
                     if(existencia==1){
-                        enviar_mensaje(topic,message,socket_client_id);
+                        enviar_mensaje_suscriptor(topic,message,socket_client_id);
                     }else if(existencia==2){
                         std::cout << "El socket del suscriptor no existe" <<std::endl;
                     }else{
