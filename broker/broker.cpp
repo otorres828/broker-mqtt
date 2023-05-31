@@ -19,7 +19,7 @@ enum class TipoDePaquete : uint8_t {
     CONNECT = 0x01,        //Utilizado para establecer una conexión entre el cliente y el servidor.
     CONNACK = 0x02,        //Utilizado para confirmar la recepción de un paquete UNSUBSCRIBE
     PUBLISH = 0x03,        //Utilizado para publicar un mensaje en un tópico.
-    PUBACK = 0x04,
+    PUBACK = 0x04,         //Utilizado para confirmar que ha recibido y procesado un mensaje PUBLISH
     SUBSCRIBE = 0x08,      //Utilizado para suscribirse a un tópico.
     SUBACK = 0x09,         //Utilizado para confirmar la recepción de un paquete SUBSCRIBE
     UNSUBSCRIBE = 0x0A,    //Utilizado para desuscribirse de un tópico.
@@ -27,7 +27,6 @@ enum class TipoDePaquete : uint8_t {
     DISCONNECT = 0x0E,     //Utilizado para desconectar el cliente del servidor.
     PINGREQ = 0x0C,        //Utilizado para solicitar una respuesta de ping al servidor.
     PINGRESP = 0x0D        //Utilizado para responder a una solicitud de ping.
-
 };
 
 // Estructura para almacenar información sobre un cliente
@@ -148,19 +147,9 @@ void manejar_paquete(int cliente_id, TipoDePaquete type, const uint8_t* data, si
             // Parsear el paquete PUBLISH
             uint16_t topic_length = (data[0] << 8) | data[1];
             string topic(reinterpret_cast<const char*>(data + 2), topic_length);
-            if ((data[0] & 0x06) == 0x02) {
-                // QoS 1 PUBLISH packet, send a PUBACK packet
-                uint16_t packet_id = (data[2 + topic_length] << 8) | data[2 + topic_length + 1];
-                uint8_t buffer[4];
-                buffer[0] = static_cast<uint8_t>(TipoDePaquete::PUBACK) << 4;
-                buffer[1] = 0x02;
-                buffer[2] = packet_id >> 8;
-                buffer[3] = packet_id & 0xFF;
-                send(cliente_id, buffer, 4, 0);
-            } 
-            // Publicar el mensaje a todos los clientes suscritos al tema
             uint16_t message_length = size - 2 - topic_length;
             string message(reinterpret_cast<const char*>(data + 2 + topic_length), message_length);
+            // Publicar el mensaje a todos los clientes suscritos al tema
             publish(topic, message);
             break;
         }
