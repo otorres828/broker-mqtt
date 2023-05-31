@@ -11,7 +11,7 @@
 #include <unistd.h>
 #include <mutex>
 #include <thread>
-
+#include <unistd.h>
 using namespace std;
 
 // Enumeración para los diferentes tipos de paquetes MQTT
@@ -51,20 +51,36 @@ void enviar_mensaje_suscriptor(const std::string& topic, const std::string& mess
     uint8_t remaining_length = 8 + topic.size() + message.size();
     
     // Concatenar los datos en una sola cadena de caracteres
-    std::string concatenated_data;
-    concatenated_data += static_cast<char>(header);
-    concatenated_data += static_cast<char>(remaining_length);
-    concatenated_data += static_cast<char>((topic.size() >> 8) & 0xFF);
-    concatenated_data += static_cast<char>(topic.size() & 0xFF);
-    concatenated_data += topic;
-    concatenated_data += message;
-    // Enviar todos los datos en una sola llamada a send()
-    if(send(socket_client_id, concatenated_data.c_str(), concatenated_data.size(), 0)<0){
-        std::cout<<"Error al enviar el mensaje"<<std::endl;
-    }else{
-        std::cout << "-------------------"<<socket_client_id<<"-------------------" <<std::endl;
-        std::cout<<"Publicador envia: "<< message.c_str()<<std::endl;
-    }
+   std::string* concatenated_data = new std::string();
+    concatenated_data->reserve(8 + topic.size() + message.size());
+    *concatenated_data += static_cast<char>(header);
+    *concatenated_data += static_cast<char>(remaining_length);
+    *concatenated_data += static_cast<char>((topic.size() >> 8) & 0xFF);
+    *concatenated_data += static_cast<char>(topic.size() & 0xFF);
+    *concatenated_data += topic;
+    *concatenated_data += message;
+    
+    //for(int i=1;i<=6;i++){
+	    if(send(socket_client_id, concatenated_data->c_str(), concatenated_data->size(), 0)<0){
+	    // Enviar todos los datos en una sola llamada a send()
+		   std::cout<<"Error al enviar el mensaje"<<std::endl;
+	    }else{
+	    //usleep(500000);
+		    std::cout << "-------------------"<<socket_client_id<<"-------------------" <<std::endl;
+		    std::cout<<"Publicador envia: "<< message.c_str()<<std::endl;
+		    delete concatenated_data;
+	    }
+    //}
+
+
+
+    //send(socket_client_id, &concatenated_data, concatenated_data.size(), 0)
+ //   if(send(socket_client_id, &concatenated_data, concatenated_data.size(), 0)<0){
+    //    std::cout<<"Error al enviar el mensaje"<<std::endl;
+   // }else{
+    //    std::cout << "-------------------"<<socket_client_id<<"-------------------" <<std::endl;
+     //   std::cout<<"Publicador envia: "<< message.c_str()<<std::endl;
+   // }
     
 }
 
@@ -341,5 +357,3 @@ int main() {
     close(server_fd);
     return 0;
 }
-
-
