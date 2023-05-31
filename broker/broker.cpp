@@ -16,17 +16,18 @@ using namespace std;
 
 // Enumeración para los diferentes tipos de paquetes MQTT
 enum class TipoDePaquete : uint8_t {
-    CONNECT = 0x01,
-    CONNACK = 0x02,
-    PUBLISH = 0x03,
+    CONNECT = 0x01,        //Utilizado para establecer una conexión entre el cliente y el servidor.
+    CONNACK = 0x02,        //Utilizado para confirmar la recepción de un paquete UNSUBSCRIBE
+    PUBLISH = 0x03,        //Utilizado para publicar un mensaje en un tópico.
     PUBACK = 0x04,
-    PUBREC = 0x05,
-    PUBCOMP = 0x07,
-    SUBSCRIBE = 0x08,
-    SUBACK = 0x09,
-    UNSUBSCRIBE = 0x0A,
-    UNSUBACK = 0x0B,
-    DISCONNECT = 0x0E
+    SUBSCRIBE = 0x08,      //Utilizado para suscribirse a un tópico.
+    SUBACK = 0x09,         //Utilizado para confirmar la recepción de un paquete SUBSCRIBE
+    UNSUBSCRIBE = 0x0A,    //Utilizado para desuscribirse de un tópico.
+    UNSUBACK = 0x0B,       //Utilizado para confirmar la recepción de un paquete CONNECT
+    DISCONNECT = 0x0E,     //Utilizado para desconectar el cliente del servidor.
+    PINGREQ = 0x0C,        //Utilizado para solicitar una respuesta de ping al servidor.
+    PINGRESP = 0x0D        //Utilizado para responder a una solicitud de ping.
+
 };
 
 // Estructura para almacenar información sobre un cliente
@@ -43,29 +44,64 @@ unordered_map<int, ClientInfo> clients;
 // Tabla hash para almacenar mensajes retenidos
 unordered_map<string, string> retained_messages;
 
+int port;
+
+// Función para enviar un mensaje al socket del cliente suscriptor en Node-RED
+void enviar_mensaje(const std::string& topic, const std::string& message, int socket_client_id){
+    int8_t header = static_cast<uint8_t>(TipoDePaquete::PUBLISH) << 4 | 0x00;
+    uint8_t remaining_length = 8 + topic.size() + message.size();
+    std::cout << "------------------------"<<socket_client_id<<"-------------------------------- " <<std::endl;
+    std::cout<<"Publicador envia: "<< message.c_str()<<std::endl;
+    // Concatenar los datos en una sola cadena de caracteres
+    std::string concatenated_data;
+    concatenated_data += static_cast<char>(header);
+    concatenated_data += static_cast<char>(remaining_length);
+    concatenated_data += static_cast<char>((topic.size() >> 8) & 0xFF);
+    concatenated_data += static_cast<char>(topic.size() & 0xFF);
+    concatenated_data += topic;
+    concatenated_data += message;
+    // Enviar todos los datos en una sola llamada a send()
+    send(socket_client_id, concatenated_data.c_str(), concatenated_data.size(), 0);
+   
+}
+
+
+// Funcion para verificar que el socket del cliente suscriptor exista al momento de enviar el mensaje
+int verificar_existencia_socket(int socket_client_id){
+    // Verificar si el socket  existe
+    int optval;
+    socklen_t optlen = sizeof(optval);
+    if (getsockopt(socket_client_id, SOL_SOCKET, SO_ERROR, &optval, &optlen) == 0) {
+        if (optval == 0) {
+            return 1; //el socket existe
+        } else {
+            return 2; //El socket no existe"
+        }
+    } else {
+        return 0; //Error al consultar el estado del socket
+    }
+}
+
 // Función para publicar un mensaje a todos los clientes suscritos a un topic
 void publish(const string& topic, const string& message) {
     for (auto it = clients.begin(); it != clients.end(); ++it) {
-        int fd = it->first;
+        // int socket_client_id = it->first;
         ClientInfo& info = it->second;
         if (info.conectado) {
+            int socket_client_id = info.socket_fd;
             for (const auto& subscription : info.subscriptions) {
                 if (subscription == topic) {
-                    uint8_t header = static_cast<uint8_t>(TipoDePaquete::PUBLISH) << 4 | 0x00;
-                    uint8_t remaining_length = 2 + topic.size() + message.size();
-                    if (remaining_length <= 127) {
-                        std::cout << "Enviando paquete PUBLISH al cliente " << fd << " en el topic " << topic << " con el mensaje " << message << endl;
-                        uint8_t buffer[4];
-                        buffer[0] = header;
-                        buffer[1] = remaining_length;
-                        buffer[2] = static_cast<uint8_t>(topic.size() >> 8);
-                        buffer[3] = topic.size() & 0xFF;
-                        send(fd, buffer, 4, 0);
-                        send(fd, topic.data(), topic.size(), 0);
-                        send(fd, message.data(), message.size(), 0);
+                    int existencia= verificar_existencia_socket(socket_client_id);   
+                    if(existencia==1){
+                        enviar_mensaje(topic,message,socket_client_id);
+                    }else if(existencia==2){
+                        std::cout << "El socket del suscriptor no existe" <<std::endl;
+                    }else{
+                         std::cout << "Error al consultar el estado del socket" <<std::endl;
+
                     }
-                    break;
-                }
+
+                }                
             }
         } else {
             std::cout << "Cliente no encontrado" << std::endl;
@@ -101,6 +137,7 @@ void manejar_paquete(int cliente_id, TipoDePaquete type, const uint8_t* data, si
             clients[cliente_id].socket_fd = cliente_id;
             clients[cliente_id].conectado = true;
             clients[cliente_id].client_id = client_id;
+            std::cout << "Socket del cliente CONNECT: " << cliente_id << std::endl;
             // enviar un CONNACK
             uint8_t buffer[4];
             buffer[0] = static_cast<uint8_t>(TipoDePaquete::CONNACK) << 4;
@@ -108,15 +145,10 @@ void manejar_paquete(int cliente_id, TipoDePaquete type, const uint8_t* data, si
             buffer[2] = 0x00;
             buffer[3] = 0x00;
             send(cliente_id, buffer, 4, 0);
-            // los mensajes retenidos
-            // for (auto it = retained_messages.begin(); it != retained_messages.end(); ++it) {
-            //     const std::string& topic = it->first;
-            //     publish(topic, it->second);            
-            // }
             break;
         }
         case TipoDePaquete::PUBLISH: {
-            std::cout<<"este paquete es de un publicador"<<std::endl;
+            // std::cout<<"este paquete es de un publicador"<<std::endl;
             // Parsear el paquete PUBLISH
             uint16_t topic_length = (data[0] << 8) | data[1];
             string topic(reinterpret_cast<const char*>(data + 2), topic_length);
@@ -134,12 +166,6 @@ void manejar_paquete(int cliente_id, TipoDePaquete type, const uint8_t* data, si
             uint16_t message_length = size - 2 - topic_length;
             string message(reinterpret_cast<const char*>(data + 2 + topic_length), message_length);
             publish(topic, message);
-            // Retain the message if the retain flag is set
-            // if ((data[0] & 0x01) == 0x01) {
-            //     retained_messages[topic] = message;
-            // } else {
-            //     retained_messages.erase(topic);
-            // }
             break;
         }
         case TipoDePaquete::SUBSCRIBE: {
@@ -208,6 +234,23 @@ void manejar_paquete(int cliente_id, TipoDePaquete type, const uint8_t* data, si
             clients.erase(cliente_id);
             break;
         }
+        case TipoDePaquete::PINGREQ: {
+            // Enviar un PINGRESP para confirmar que la conexión sigue activa
+            uint8_t buffer[2];
+            buffer[0] = static_cast<uint8_t>(TipoDePaquete::PINGRESP) << 4;
+            buffer[1] = 0x00;
+            send(cliente_id, buffer, 2, 0);
+            break;
+        }
+        case TipoDePaquete::PINGRESP: {
+            // Confirmar la recepción del paquete PINGRESP
+            uint8_t buffer[2];
+            buffer[0] = static_cast<uint8_t>(TipoDePaquete::PINGRESP) << 4;
+            buffer[1] = 0x00;
+            send(cliente_id, buffer, 2, 0);
+            std::cout << "Paquete PINGRESP recibido" << std::endl;
+            break;
+        }
         default:
             // Tipo de paquete no válido, desconecte el cliente
             std::cout<<"No se pudo conectar, cliente desconectado"<<std::endl;
@@ -247,12 +290,12 @@ void manejar_cliente(int cliente_id) {
             }
             remaining_length += (buffer[i] & 0x7F) * multiplier;
             if (buffer_size < i + 1 + remaining_length) {
-                // Incomplete packet, wait for more data
+                // Paquete incompleto, esperar más datos
                 break;
             }
-            // Handle the packet
+            // manejar el paquete
             manejar_paquete(cliente_id, static_cast<TipoDePaquete>(packet_type), buffer + i + 1, remaining_length);
-            // Remove the packet from the buffer
+            // Eliminar el paquete del búfer
             memmove(buffer, buffer + i + 1 + remaining_length, buffer_size - i - 1 - remaining_length);
             buffer_size -= i + 1 + remaining_length;
         }
@@ -266,7 +309,6 @@ int main() {
         cerr << "fallo al crear el socket" << endl;
         return 1;
     }
-    int port;
     std::cout << "Ingrese el puerto: ";
     std::cin >> port;
 
@@ -292,6 +334,7 @@ int main() {
         // Esperar la conexion del cliente
         sockaddr_in client_addr{};
         socklen_t client_addr_len = sizeof(client_addr);
+        // se utiliza accept para crear el socket
         int cliente_id = accept(server_fd, reinterpret_cast<sockaddr*>(&client_addr), &client_addr_len);
         if (cliente_id == -1) {
             cerr << "No se ha podido aceptar la conexión" << endl;
@@ -299,9 +342,8 @@ int main() {
         }
         // Proteger el acceso a la lista de clientes
         std::lock_guard<std::mutex> lock(mutex);
-
         //Crear un hilo para gestionar el cliente
-        thread t(manejar_cliente,cliente_id);
+        thread t(manejar_cliente, cliente_id);
         t.detach(); // Separar el hilo para que pueda funcionar de forma independiente
     }
     // Cerrar el socket del servidor
