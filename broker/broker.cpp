@@ -27,7 +27,6 @@ enum class TipoDePaquete : uint8_t {
     DISCONNECT = 0x0E,     //Utilizado para desconectar el cliente del servidor.
     PINGREQ = 0x0C,        //Utilizado para solicitar una respuesta de ping al servidor.
     PINGRESP = 0x0D        //Utilizado para responder a una solicitud de ping.
-
 };
 
 // Estructura para almacenar información sobre un cliente
@@ -42,7 +41,7 @@ struct ClientInfo {
 unordered_map<int, ClientInfo> clients;
 
 // Tabla hash para almacenar mensajes retenidos
-unordered_map<string, string> retained_messages;
+// unordered_map<string, string> retained_messages;
 
 int port;
 
@@ -81,7 +80,7 @@ int verificar_existencia_socket(int socket_client_id){
 }
 
 // Función para publicar un mensaje a todos los clientes suscritos a un topic
-void publish(const string& topic, const string& message) {
+void publicar(const string& topic, const string& message) {
     for (auto it = clients.begin(); it != clients.end(); ++it) {
         // int socket_client_id = it->first;
         ClientInfo& info = it->second;
@@ -151,7 +150,7 @@ void manejar_paquete(int cliente_id, TipoDePaquete type, const uint8_t* data, si
             // Publicar el mensaje a todos los clientes suscritos al tema
             uint16_t message_length = size - 2 - topic_length;
             string message(reinterpret_cast<const char*>(data + 2 + topic_length), message_length);
-            publish(topic, message);
+            publicar(topic, message);
             break;
         }
         case TipoDePaquete::SUBSCRIBE: {
@@ -239,7 +238,7 @@ void manejar_paquete(int cliente_id, TipoDePaquete type, const uint8_t* data, si
         }
         default:
             // Tipo de paquete no válido, desconecte el cliente
-            std::cout<<"No se pudo conectar, cliente desconectado"<<std::endl;
+            std::cout<<"No se pudo conectar, cliente desconectado: "<<std::endl;
             close(cliente_id);
             clients.erase(cliente_id);
             break;
@@ -337,4 +336,3 @@ int main() {
     close(server_fd);
     return 0;
 }
-
