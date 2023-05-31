@@ -27,6 +27,7 @@ enum class TipoDePaquete : uint8_t {
     DISCONNECT = 0x0E,     //Utilizado para desconectar el cliente del servidor.
     PINGREQ = 0x0C,        //Utilizado para solicitar una respuesta de ping al servidor.
     PINGRESP = 0x0D        //Utilizado para responder a una solicitud de ping.
+
 };
 
 // Estructura para almacenar información sobre un cliente
@@ -147,9 +148,9 @@ void manejar_paquete(int cliente_id, TipoDePaquete type, const uint8_t* data, si
             // Parsear el paquete PUBLISH
             uint16_t topic_length = (data[0] << 8) | data[1];
             string topic(reinterpret_cast<const char*>(data + 2), topic_length);
+            // Publicar el mensaje a todos los clientes suscritos al tema
             uint16_t message_length = size - 2 - topic_length;
             string message(reinterpret_cast<const char*>(data + 2 + topic_length), message_length);
-            // Publicar el mensaje a todos los clientes suscritos al tema
             publish(topic, message);
             break;
         }
@@ -246,8 +247,8 @@ void manejar_paquete(int cliente_id, TipoDePaquete type, const uint8_t* data, si
 }
 
 void manejar_cliente(int cliente_id) {
-    // Receive packets from the client
-    uint8_t buffer[4096];
+    // Recibir paquete del cliente
+    uint8_t buffer[6144];
     size_t buffer_size = 0;
     while (true) {
         ssize_t bytes_received = recv(cliente_id, buffer + buffer_size, sizeof(buffer) - buffer_size, 0);
@@ -336,3 +337,4 @@ int main() {
     close(server_fd);
     return 0;
 }
+
