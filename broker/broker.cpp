@@ -49,8 +49,7 @@ int port;
 void enviar_mensaje_suscriptor(const std::string& topic, const std::string& message, int socket_client_id){
     int8_t header = static_cast<uint8_t>(TipoDePaquete::PUBLISH) << 4 | 0x00;
     uint8_t remaining_length = 8 + topic.size() + message.size();
-    std::cout << "-------------------"<<socket_client_id<<"-------------------" <<std::endl;
-    std::cout<<"Publicador envia: "<< message.c_str()<<std::endl;
+    
     // Concatenar los datos en una sola cadena de caracteres
     std::string concatenated_data;
     concatenated_data += static_cast<char>(header);
@@ -60,7 +59,13 @@ void enviar_mensaje_suscriptor(const std::string& topic, const std::string& mess
     concatenated_data += topic;
     concatenated_data += message;
     // Enviar todos los datos en una sola llamada a send()
-    send(socket_client_id, concatenated_data.c_str(), concatenated_data.size(), 0);
+    if(send(socket_client_id, concatenated_data.c_str(), concatenated_data.size(), 0)<0){
+        std::cout<<"Error al enviar el mensaje"<<std::endl;
+    }else{
+        std::cout << "-------------------"<<socket_client_id<<"-------------------" <<std::endl;
+        std::cout<<"Publicador envia: "<< message.c_str()<<std::endl;
+    }
+    
 }
 
 // Funcion para verificar que el socket del cliente suscriptor exista al momento de enviar el mensaje
@@ -336,3 +341,5 @@ int main() {
     close(server_fd);
     return 0;
 }
+
+
